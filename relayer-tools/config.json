@@ -1,0 +1,31 @@
+{
+    "daConfig": {
+        "target": "disperser-holesky.eigenda.xyz:443",
+        "privateKeyFilePath": "./demo.pk"
+    },
+    "dbConfig": {
+        "file": "./relayer.db",
+        "retainWindow": 1000
+    },
+    "seqNode": {
+        "uri": "http://127.0.0.1:35293/ext/bc/2WTwzmg5PNMCRnKoJ1apHGtzPSeDybrM9iZ2EYh3d19xf6wUdj",
+        "networkID": 1337,
+        "chainID": "2WTwzmg5PNMCRnKoJ1apHGtzPSeDybrM9iZ2EYh3d19xf6wUdj", 
+        "nodeUrl": "http://127.0.0.1:35293"
+    },
+    "rules": {
+        "useStableSeqHeight": true,
+        "stableSeqHeight": 1
+    },
+    "log": {
+        "level": "debug",
+        "toConsole": true,
+        "logFile": "./relayer.log"
+    },
+    "serverLessConfig": {
+        "endpoint": "localhost:9321",
+        "blocksPerWindow": 100, 
+        "waitBlocks": 2,
+        "relayerID": 1
+    }
+}
