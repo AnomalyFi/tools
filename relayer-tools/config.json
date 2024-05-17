@@ -4,28 +4,22 @@
         "privateKeyFilePath": "./demo.pk"
     },
     "dbConfig": {
-        "file": "./relayer.db",
+        "file": "./relayer0.db",
         "retainWindow": 1000
     },
     "seqNode": {
-        "uri": "http://127.0.0.1:35293/ext/bc/2WTwzmg5PNMCRnKoJ1apHGtzPSeDybrM9iZ2EYh3d19xf6wUdj",
-        "networkID": 1337,
-        "chainID": "2WTwzmg5PNMCRnKoJ1apHGtzPSeDybrM9iZ2EYh3d19xf6wUdj", 
-        "nodeUrl": "http://127.0.0.1:35293"
-    },
-    "rules": {
-        "useStableSeqHeight": true,
-        "stableSeqHeight": 1
+        "uri": "http://127.0.0.1:34191/ext/bc/29WYLFiEazawYHL37jAMsMND4AGxp8EAvpNcWTsCJWBXscDKZ8",
+        "networkID": 0,
+        "nodeUrl": "http://127.0.0.1:34191",
+        "chainID": "29WYLFiEazawYHL37jAMsMND4AGxp8EAvpNcWTsCJWBXscDKZ8"
     },
     "log": {
         "level": "debug",
         "toConsole": true,
-        "logFile": "./relayer.log"
+        "logFile": "./relayer0.log"
     },
-    "serverLessConfig": {
-        "endpoint": "localhost:9321",
-        "blocksPerWindow": 100, 
-        "waitBlocks": 2,
-        "relayerID": 1
+    "metaConfig": {
+        "endpoint": "localhost:2321",
+        "serveRpc": "127.0.0.1:12570"
     }
 }

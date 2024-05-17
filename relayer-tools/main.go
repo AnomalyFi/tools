@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"os"
 	"strconv"
 	"strings"
@@ -14,16 +15,8 @@ import (
 	"github.com/ava-labs/avalanche-network-runner/client"
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/logging"
+	"github.com/ethereum/go-ethereum/crypto"
 )
-
-type ConfigData struct {
-	DAConfig         EigenDAClientConfig `json:"daConfig"`
-	DBConfig         DatabaseConfig      `json:"dbConfig"`
-	SeqNode          SeqNodeInfo         `json:"seqNode"`
-	Rules            Rules               `json:"rules"`
-	Log              LogConfig           `json:"log"`
-	ServerLessConfig ServerLessConfig    `json:"serverLessConfig"`
-}
 
 type EigenDAClientConfig struct {
 	Target             string `json:"target"`
@@ -35,6 +28,14 @@ type DatabaseConfig struct {
 	RetainWindow uint64 `json:"retainWindow"`
 }
 
+type Config struct {
+	DAConfig   EigenDAClientConfig `json:"daConfig"`
+	DBConfig   DatabaseConfig      `json:"dbConfig"`
+	SeqNode    SeqNodeInfo         `json:"seqNode"`
+	Log        LogConfig           `json:"log"`
+	MetaConfig MetaConfig          `json:"metaConfig"`
+}
+
 type SeqNodeInfo struct {
 	URI       string `json:"uri"`
 	NetworkID uint32 `json:"networkID"`
@@ -43,33 +44,15 @@ type SeqNodeInfo struct {
 	ChainID string `json:"chainID"`
 }
 
-type SeqWSClientConfig struct {
-	URI string `json:"uri"`
-}
-
-type SeqJsonRPCConfig struct {
-	URI       string `json:"uri"`
-	NetworkID uint32 `json:"networkID"`
-	// need to be unmarshalled
-	ChainID string `json:"chainID"`
-}
-
-type Rules struct {
-	UseStableSeqHeight bool   `json:"useStableSeqHeight"`
-	StableSeqHeight    uint64 `json:"stableSeqHeight"`
-}
-
 type LogConfig struct {
 	Level     string `json:"level"`
 	ToConsole bool   `json:"toConsole"`
 	LogFile   string `json:"logFile"`
 }
 
-type ServerLessConfig struct {
-	Endpoint        string `json:"endpoint"`
-	BlocksPerWindow uint32 `json:"blocksPerWindow"`
-	RelayerID       int    `json:"relayerID"`
-	WaitBlocks      uint32 `json:"waitBlocks"`
+type MetaConfig struct {
+	ServeRpc string `json:"serveRpc"`
+	Endpoint string `json:"endpoint"`
 }
 
 func main() {
@@ -87,7 +70,7 @@ func main() {
 		panic(fmt.Sprintf("unable to open file %s\n", args[0]))
 	}
 
-	var config ConfigData
+	var config Config
 	if err := json.Unmarshal(configBytes, &config); err != nil {
 		panic(fmt.Sprintf("unable to parse config:\n %s\n", string(configBytes)))
 	}
@@ -152,6 +135,8 @@ func main() {
 	for i, uri := range uris {
 		cli := srpc.NewJSONRPCClient(uri, networkID, filledChainID)
 		port, err := cli.ServerlessPort(ctx)
+
+		fmt.Println(port)
 		if err != nil {
 			panic(err)
 		}
@@ -159,16 +144,20 @@ func main() {
 		config.SeqNode.URI = uri
 		config.SeqNode.NetworkID = networkID
 		config.SeqNode.ChainID = filledChainID.String()
-		config.ServerLessConfig.Endpoint = "localhost" + port
+		config.MetaConfig.Endpoint = "localhost" + port
 		config.SeqNode.NodeUrl = nodeUrls[i]
 		config.Log.LogFile = "./relayer" + strconv.Itoa(i) + ".log"
 		config.DBConfig.File = "./relayer" + strconv.Itoa(i) + ".db"
 		config.DAConfig.PrivateKeyFilePath = "./demo" + strconv.Itoa(i) + ".pk"
+		r := rand.Intn(100) + 12500
+		config.MetaConfig.ServeRpc = "127.0.0.1:" + strconv.Itoa(r)
 		// create new config file(s)
 		d, err := json.Marshal(config)
 		if err != nil {
 			panic(err)
 		}
 		fmt.Println(os.WriteFile("config"+strconv.Itoa(i)+".json", d, 0644))
+		privKey, _ := crypto.GenerateKey()
+		crypto.SaveECDSA("demo"+strconv.Itoa(i)+".pk", privKey)
 	}
 }
