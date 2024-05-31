@@ -23,17 +23,25 @@ type EigenDAClientConfig struct {
 	PrivateKeyFilePath string `json:"privateKeyFilePath"`
 }
 
+type AvailClientConfig struct {
+	ApiURL string `json:"apiURL"`
+	AppID  int    `json:"appID"`
+	Seed   string `json:"seed"`
+}
+
 type DatabaseConfig struct {
 	File         string `json:"file"`
 	RetainWindow uint64 `json:"retainWindow"`
 }
 
 type Config struct {
-	DAConfig   EigenDAClientConfig `json:"daConfig"`
-	DBConfig   DatabaseConfig      `json:"dbConfig"`
-	SeqNode    SeqNodeInfo         `json:"seqNode"`
-	Log        LogConfig           `json:"log"`
-	MetaConfig MetaConfig          `json:"metaConfig"`
+	DBConfig   DatabaseConfig `json:"dbConfig"`
+	SeqNode    SeqNodeInfo    `json:"seqNode"`
+	Log        LogConfig      `json:"log"`
+	MetaConfig MetaConfig     `json:"metaConfig"`
+	// DA configs
+	EigenDAConfig EigenDAClientConfig `json:"eigenDAConfig"`
+	AvailDAConfig AvailClientConfig   `json:"availDAConfig"`
 }
 
 type SeqNodeInfo struct {
@@ -148,7 +156,7 @@ func main() {
 		config.SeqNode.NodeUrl = nodeUrls[i]
 		config.Log.LogFile = "./relayer" + strconv.Itoa(i) + ".log"
 		config.DBConfig.File = "./relayer" + strconv.Itoa(i) + ".db"
-		config.DAConfig.PrivateKeyFilePath = "./demo" + strconv.Itoa(i) + ".pk"
+		config.EigenDAConfig.PrivateKeyFilePath = "./demo" + strconv.Itoa(i) + ".pk"
 		r := rand.Intn(100) + 12500
 		config.MetaConfig.ServeRpc = "127.0.0.1:" + strconv.Itoa(r)
 		// create new config file(s)

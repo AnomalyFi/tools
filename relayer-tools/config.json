@@ -1,17 +1,13 @@
 {
-    "daConfig": {
-        "target": "disperser-holesky.eigenda.xyz:443",
-        "privateKeyFilePath": "./demo.pk"
-    },
     "dbConfig": {
         "file": "./relayer0.db",
         "retainWindow": 1000
     },
     "seqNode": {
-        "uri": "http://127.0.0.1:34191/ext/bc/29WYLFiEazawYHL37jAMsMND4AGxp8EAvpNcWTsCJWBXscDKZ8",
+        "uri": "http://127.0.0.1:43727/ext/bc/qKsM4zMaiF4rtkB7B6gxSX2MY9agMfhyDfAYh4qh6JNT6cx8L",
         "networkID": 0,
-        "nodeUrl": "http://127.0.0.1:34191",
-        "chainID": "29WYLFiEazawYHL37jAMsMND4AGxp8EAvpNcWTsCJWBXscDKZ8"
+        "nodeUrl": "http://127.0.0.1:43727",
+        "chainID": "2JCKjYMw6VySrSLmB5BnUTwjuJ5nWvJPyFcNtBcxmvghh6Scwe"
     },
     "log": {
         "level": "debug",
@@ -19,7 +15,16 @@
         "logFile": "./relayer0.log"
     },
     "metaConfig": {
-        "endpoint": "localhost:2321",
-        "serveRpc": "127.0.0.1:12570"
+        "serveRpc": "127.0.0.1:12560",
+        "endpoint": "localhost:2173"
+    },
+    "eigenDAConfig": {
+        "target": "disperser-holesky.eigenda.xyz:443",
+        "privateKeyFilePath": "./demo1.pk"
+    },
+    "availDAConfig": {
+        "appID": 0,
+        "apiURL": "wss: //turing-rpc.avail.so/ws",
+        "Seed": "bottom drive obey lake curtain smoke basket hold race lonely fit walk//Alice"
     }
 }
