@@ -1,6 +1,6 @@
 module github.com/AnomalyFi/nodekit-tools/relayer-tools
 
-go 1.21.3
+go 1.22.2
 
 require (
 	github.com/AnomalyFi/nodekit-seq v0.0.0-20240515100614-a28123cfe0cd
