@@ -3,3 +3,5 @@ go 1.22.2
 use ./relayer-tools
 
 use ./oracle-tools
+
+use ./poll-namespace
