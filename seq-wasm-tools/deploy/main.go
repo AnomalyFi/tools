@@ -20,9 +20,9 @@ import (
 	"github.com/AnomalyFi/nodekit-seq/auth"
 	trpc "github.com/AnomalyFi/nodekit-seq/rpc"
 	"github.com/ava-labs/avalanchego/ids"
-	"github.com/ava-labs/coreth/accounts/abi"
-	"github.com/ava-labs/coreth/accounts/abi/bind"
-	"github.com/ava-labs/coreth/core/types"
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/AnomalyFi/tools/state-keys/blobstream"
 )

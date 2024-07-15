@@ -142,7 +142,7 @@ func main() {
 	// fetch serverless ports for every node
 	for i, uri := range uris {
 		cli := srpc.NewJSONRPCClient(uri, networkID, filledChainID)
-		port, err := cli.ServerlessPort(ctx)
+		port, err := cli.MessageNetPort(ctx)
 
 		fmt.Println(port)
 		if err != nil {
