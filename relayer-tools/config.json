@@ -1,6 +1,6 @@
 {
     "dbConfig": {
-        "file": "./relayer0.db",
+        "file": "./relayer.db",
         "retainWindow": 1000
     },
     "seqNode": {
@@ -10,9 +10,9 @@
         "chainID": "2JCKjYMw6VySrSLmB5BnUTwjuJ5nWvJPyFcNtBcxmvghh6Scwe"
     },
     "log": {
-        "level": "debug",
+        "level": "info",
         "toConsole": true,
-        "logFile": "./relayer0.log"
+        "logFile": "./relayer.log"
     },
     "metaConfig": {
         "serveRpc": "127.0.0.1:12560",
@@ -20,11 +20,16 @@
     },
     "eigenDAConfig": {
         "target": "disperser-holesky.eigenda.xyz:443",
-        "privateKeyFilePath": "./demo1.pk"
+        "privateKeyFilePath": "./demo.pk"
     },
     "availDAConfig": {
         "appID": 0,
         "apiURL": "wss: //turing-rpc.avail.so/ws",
         "Seed": "bottom drive obey lake curtain smoke basket hold race lonely fit walk//Alice"
+    },
+    "celestiaDAConfig": {
+        "nameSpaceID": "nKit",
+        "rpcAddress": "http://127.0.0.1:26658",
+        "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJBbGxvdyI6WyJwdWJsaWMiLCJyZWFkIiwid3JpdGUiLCJhZG1pbiJdfQ.UrHdX7Y_nv5DX4ypwWqLqGxH_N3SCGWfIDSNtR7zcb4"
     }
 }

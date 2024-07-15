@@ -18,6 +18,12 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
+type CelestiaDAClientConfig struct {
+	NameSpaceID []byte `json:"nameSpaceID"`
+	RPCAddress  string `json:"rpcAddress"`
+	AccessToken string `json:"accessToken"`
+}
+
 type EigenDAClientConfig struct {
 	Target             string `json:"target"`
 	PrivateKeyFilePath string `json:"privateKeyFilePath"`
@@ -40,8 +46,9 @@ type Config struct {
 	Log        LogConfig      `json:"log"`
 	MetaConfig MetaConfig     `json:"metaConfig"`
 	// DA configs
-	EigenDAConfig EigenDAClientConfig `json:"eigenDAConfig"`
-	AvailDAConfig AvailClientConfig   `json:"availDAConfig"`
+	EigenDAConfig    EigenDAClientConfig    `json:"eigenDAConfig"`
+	AvailDAConfig    AvailClientConfig      `json:"availDAConfig"`
+	CelestiaDAConfig CelestiaDAClientConfig `json:"celestiaDAConfig"`
 }
 
 type SeqNodeInfo struct {
