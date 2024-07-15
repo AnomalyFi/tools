@@ -5,3 +5,7 @@ use ./relayer-tools
 use ./oracle-tools
 
 use ./poll-namespace
+
+use ./state-keys
+
+use ./seq-wasm-tools
