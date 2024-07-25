@@ -2,37 +2,35 @@ package blobstream
 
 import (
 	"encoding/binary"
-	"encoding/hex"
 	"math/big"
-	"strconv"
 
 	"github.com/AnomalyFi/tools/state-keys/utils"
 )
 
-func StateKeysInitializer(height uint64) []string {
-	hB := binary.BigEndian.AppendUint64(nil, height)
-	slot := "slot" + strconv.Itoa(1) + hex.EncodeToString(hB)
-	return []string{slot}
+func StateKeysInitializer(height uint64) [][]byte {
+	key := binary.BigEndian.AppendUint64(nil, height)
+	slot := append(binary.BigEndian.AppendUint32(nil, 1), key...)
+	return [][]byte{slot}
 }
 
-func StateKeysUpdateGenesisState(height uint64) []string {
-	hB := binary.BigEndian.AppendUint64(nil, height)
-	slot := "slot" + strconv.Itoa(1) + hex.EncodeToString(hB)
-	return []string{slot}
+func StateKeysUpdateGenesisState(height uint64) [][]byte {
+	key := binary.BigEndian.AppendUint64(nil, height)
+	slot := append(binary.BigEndian.AppendUint32(nil, 1), key...)
+	return [][]byte{slot}
 }
 
-func StateKeysCommitHeaderRange(height uint64, targetHeight uint64, nonce *big.Int) []string {
-	hB := binary.BigEndian.AppendUint64(nil, height)
-	slot1 := "slot" + strconv.Itoa(1) + hex.EncodeToString(hB)
-	hB = binary.BigEndian.AppendUint64(nil, targetHeight)
-	slot2 := "slot" + strconv.Itoa(1) + hex.EncodeToString(hB)
+func StateKeysCommitHeaderRange(height uint64, targetHeight uint64, nonce *big.Int) [][]byte {
+	key1 := binary.BigEndian.AppendUint64(nil, height)
+	slot1 := append(binary.BigEndian.AppendUint32(nil, 1), key1...)
+	key2 := binary.BigEndian.AppendUint64(nil, targetHeight)
+	slot2 := append(binary.BigEndian.AppendUint32(nil, 1), key2...)
 	nonceBytes, _ := utils.BigIntToBytes32(nonce)
-	slot3 := "slot" + strconv.Itoa(2) + hex.EncodeToString(nonceBytes)
-	return []string{slot1, slot2, slot3}
+	slot3 := append(binary.BigEndian.AppendUint32(nil, 2), nonceBytes...)
+	return [][]byte{slot1, slot2, slot3}
 }
 
-func StateKeysVerifyAttestation(nonce *big.Int) []string {
+func StateKeysVerifyAttestation(nonce *big.Int) [][]byte {
 	nonceBytes, _ := utils.BigIntToBytes32(nonce)
-	slot := "slot" + strconv.Itoa(2) + hex.EncodeToString(nonceBytes)
-	return []string{slot}
+	slot := append(binary.BigEndian.AppendUint32(nil, 2), nonceBytes...)
+	return [][]byte{slot}
 }
