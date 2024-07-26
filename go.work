@@ -9,3 +9,5 @@ use ./poll-namespace
 use ./state-keys
 
 use ./seq-wasm-tools
+
+use ./spam/sequencer-msg
