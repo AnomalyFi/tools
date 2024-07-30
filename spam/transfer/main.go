@@ -112,8 +112,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	chainIDs := [][]byte{[]byte("nkit"), []byte("everest"), []byte("combator"), []byte("marinedrive")}
-	actions := getSequencerMessage(address, chainIDs[0], 300)
+	actions := generateTransfer(address, 0)
 	parser, err := tclient.Parser(ctx)
 	if err != nil {
 		panic(err)
@@ -250,7 +249,6 @@ func main() {
 		g.Go(func() error {
 			t := time.NewTimer(0) // ensure no duplicates created
 			defer t.Stop()
-			source := rand.NewSource(time.Now().UnixNano())
 			issuerIndex, issuer := getRandomIssuer(clients)
 			factory, err := getFactory(accounts[i])
 			if err != nil {
@@ -296,7 +294,8 @@ func main() {
 						}
 						v := selected[recipient] + 1
 						selected[recipient] = v
-						actions := getSequencerMessage(recipient, chainIDs[rand.Int()%len(chainIDs)], source.Int63()/1_200_000)
+
+						actions := generateTransfer(recipient, uint64(v))
 						fee, err := fees.MulSum(unitPrices, maxUnits)
 						if err != nil {
 							utils.Outf("{{orange}}failed to estimate max fee:{{/}} %v\n", err)
@@ -399,21 +398,6 @@ func lookupBalance(tclient *trpc.JSONRPCClient, address string) (uint64, error) 
 		consts.Symbol,
 	)
 	return balance, err
-}
-
-// @todo
-func getSequencerMessage(addr codec.Address, chainID []byte, dataLen int64) []chain.Action {
-	data := make([]byte, dataLen)
-	_, err := rand.Read(data)
-	if err != nil {
-		fmt.Println("error getting random data", err)
-	}
-	return []chain.Action{&actions.SequencerMsg{
-		ChainId:     chainID,
-		Data:        data,
-		FromAddress: addr,
-		RelayerID:   int(dataLen % 10),
-	}}
 }
 
 func PrintUnitPrices(d fees.Dimensions) {

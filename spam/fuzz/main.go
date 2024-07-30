@@ -13,20 +13,21 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/AnomalyFi/hypersdk/chain"
 	"github.com/AnomalyFi/hypersdk/codec"
+	hconsts "github.com/AnomalyFi/hypersdk/consts"
 	"github.com/AnomalyFi/hypersdk/crypto/ed25519"
 	"github.com/AnomalyFi/hypersdk/fees"
-	"github.com/AnomalyFi/hypersdk/utils"
-	"golang.org/x/sync/errgroup"
-
-	"github.com/AnomalyFi/hypersdk/chain"
 	"github.com/AnomalyFi/hypersdk/pubsub"
 	"github.com/AnomalyFi/hypersdk/rpc"
+	"github.com/AnomalyFi/hypersdk/state"
+	"github.com/AnomalyFi/hypersdk/utils"
 	"github.com/AnomalyFi/nodekit-seq/actions"
 	"github.com/AnomalyFi/nodekit-seq/auth"
 	"github.com/AnomalyFi/nodekit-seq/consts"
 	trpc "github.com/AnomalyFi/nodekit-seq/rpc"
 	"github.com/ava-labs/avalanchego/ids"
+	"golang.org/x/sync/errgroup"
 )
 
 var (
@@ -50,13 +51,20 @@ var (
 	sent     atomic.Int64
 )
 
+var (
+	ErrMisalignedTime = errors.New("misaligned time")
+	ErrInvalidActor   = errors.New("invalid actor")
+	ErrInvalidSponsor = errors.New("invalid sponsor")
+	ErrInvalidObject  = errors.New("invalid object")
+)
+
 const (
 	decimals              = 9
 	maxTxBacklog          = 500
 	maxFee                = -1
 	randomRecipient       = false
-	numAccounts           = 1
-	numTxsPerAccount      = 1 // per second
+	numAccounts           = 10
+	numTxsPerAccount      = 100 // per second
 	numClients            = 1
 	MillisecondsPerSecond = 1000 // 1000ms = 1 sec
 )
@@ -82,11 +90,11 @@ func main() {
 	// chain id
 	chainID, _ := ids.FromString("cKA3rhvogANuQV6y8hXX9282tVVvDZQBoVUyRgBoXUZhnPjN7")
 	uris := []string{
-		"http://devnet.nodekit.xyz/avax-0/ext/bc/cKA3rhvogANuQV6y8hXX9282tVVvDZQBoVUyRgBoXUZhnPjN7",
-		"http://devnet.nodekit.xyz/avax-1/ext/bc/cKA3rhvogANuQV6y8hXX9282tVVvDZQBoVUyRgBoXUZhnPjN7",
-		"http://devnet.nodekit.xyz/avax-2/ext/bc/cKA3rhvogANuQV6y8hXX9282tVVvDZQBoVUyRgBoXUZhnPjN7",
-		"http://devnet.nodekit.xyz/avax-3/ext/bc/cKA3rhvogANuQV6y8hXX9282tVVvDZQBoVUyRgBoXUZhnPjN7",
-		"http://devnet.nodekit.xyz/avax-4/ext/bc/cKA3rhvogANuQV6y8hXX9282tVVvDZQBoVUyRgBoXUZhnPjN7",
+		"http://devnet.nodekit.xyz/avax-0/ext/bc/cKA3rhvogANuQV6y8hXX9282tVVvDZQBoVUyRgBoXUZhnPjN7/",
+		"http://devnet.nodekit.xyz/avax-1/ext/bc/cKA3rhvogANuQV6y8hXX9282tVVvDZQBoVUyRgBoXUZhnPjN7/",
+		"http://devnet.nodekit.xyz/avax-2/ext/bc/cKA3rhvogANuQV6y8hXX9282tVVvDZQBoVUyRgBoXUZhnPjN7/",
+		"http://devnet.nodekit.xyz/avax-3/ext/bc/cKA3rhvogANuQV6y8hXX9282tVVvDZQBoVUyRgBoXUZhnPjN7/",
+		"http://devnet.nodekit.xyz/avax-4/ext/bc/cKA3rhvogANuQV6y8hXX9282tVVvDZQBoVUyRgBoXUZhnPjN7/",
 	}
 
 	// root private key, with all the funds:
@@ -99,12 +107,12 @@ func main() {
 	factory := auth.NewED25519Factory(priv)
 	address := auth.NewED25519Address(priv.PublicKey())
 	sddr, _ := codec.AddressBech32("token", address)
-	cli := rpc.NewJSONRPCClient(uris[1])
+	cli := rpc.NewJSONRPCClient(uris[0])
 	networkID, _, _, err := cli.Network(ctx)
 	if err != nil {
 		panic(err)
 	}
-	tclient, _, err := createClient(uris[1], networkID, chainID)
+	tclient, _, err := createClient(uris[0], networkID, chainID)
 	if err != nil {
 		panic(err)
 	}
@@ -112,8 +120,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	chainIDs := [][]byte{[]byte("nkit"), []byte("everest"), []byte("combator"), []byte("marinedrive")}
-	actions := getSequencerMessage(address, chainIDs[0], 300)
+	actions := generateTransfer(address, 0)
 	parser, err := tclient.Parser(ctx)
 	if err != nil {
 		panic(err)
@@ -182,7 +189,6 @@ func main() {
 			panic(fmt.Errorf("%w: %s", ErrTxFailed, result.Error))
 		}
 	}
-	var recipientFunc func() (*PrivateKey, error)
 	utils.Outf("{{yellow}}distributed funds to %d accounts{{/}}\n", numAccounts)
 	// Kickoff txs
 	clients := []*txIssuer{}
@@ -289,26 +295,47 @@ func main() {
 					start := time.Now()
 					selected := map[codec.Address]int{}
 					for k := 0; k < numTxsPerAccount; k++ {
-						recipient, err := getNextRecipient(i, recipientFunc, accounts)
+						recipient, err := getNextRecipient(i, accounts)
 						if err != nil {
 							utils.Outf("{{orange}}failed to get next recipient:{{/}} %v\n", err)
 							return err
 						}
 						v := selected[recipient] + 1
 						selected[recipient] = v
-						actions := getSequencerMessage(recipient, chainIDs[rand.Int()%len(chainIDs)], source.Int63()/1_200_000)
-						fee, err := fees.MulSum(unitPrices, maxUnits)
-						if err != nil {
-							utils.Outf("{{orange}}failed to estimate max fee:{{/}} %v\n", err)
-							return err
-						}
-
-						_, tx, err := issuer.c.GenerateTransactionManual(parser, actions, factory, fee, tm)
-						if err != nil {
-							utils.Outf("{{orange}}failed to generate tx:{{/}} %v\n", err)
+						randomValue := source.Int63()
+						var txn *chain.Transaction
+						var feei uint64
+						// every 4 txs send a ill formed data
+						if randomValue%4 == 0 {
+							tx, err := GenerateIllFormedTx(parser, factory)
+							if err != nil {
+								utils.Outf("{{orange}}failed to generate illformed tx:{{/}} %v\n", err)
+								continue
+							}
+							txID, err := issuer.c.SubmitTx(ctx, tx.bytes)
+							if err != nil {
+								utils.Outf("{{orange}}failed to submit illformed tx:{{/}} %v\n", err)
+								continue
+							}
+							utils.Outf("{{yellow}}submitted illformed tx:{{/}} %s\n", txID)
 							continue
+						} else {
+							actions := generateRandomActions(&parser, recipient, randomValue, v)
+							fee, err := fees.MulSum(unitPrices, maxUnits)
+							if err != nil {
+								utils.Outf("{{orange}}failed to estimate max fee:{{/}} %v\n", err)
+								return err
+							}
+
+							_, tx, err := issuer.c.GenerateTransactionManual(parser, actions, factory, fee, tm)
+							if err != nil {
+								utils.Outf("{{orange}}failed to generate tx:{{/}} %v\n", err)
+								continue
+							}
+							feei = fee
+							txn = tx
 						}
-						if err := issuer.d.RegisterTx(tx); err != nil {
+						if err := issuer.d.RegisterTx(txn); err != nil {
 							issuer.l.Lock()
 							if issuer.d.Closed() {
 								if issuer.abandoned != nil {
@@ -331,7 +358,7 @@ func main() {
 							}
 							continue
 						}
-						balance -= (fee + uint64(v))
+						balance -= (feei + uint64(v))
 						issuer.l.Lock()
 						issuer.outstandingTxs++
 						issuer.l.Unlock()
@@ -399,21 +426,6 @@ func lookupBalance(tclient *trpc.JSONRPCClient, address string) (uint64, error) 
 		consts.Symbol,
 	)
 	return balance, err
-}
-
-// @todo
-func getSequencerMessage(addr codec.Address, chainID []byte, dataLen int64) []chain.Action {
-	data := make([]byte, dataLen)
-	_, err := rand.Read(data)
-	if err != nil {
-		fmt.Println("error getting random data", err)
-	}
-	return []chain.Action{&actions.SequencerMsg{
-		ChainId:     chainID,
-		Data:        data,
-		FromAddress: addr,
-		RelayerID:   int(dataLen % 10),
-	}}
 }
 
 func PrintUnitPrices(d fees.Dimensions) {
@@ -504,15 +516,7 @@ func getRandomIssuer(issuers []*txIssuer) (int, *txIssuer) {
 	return index, issuers[index]
 }
 
-func getNextRecipient(self int, createAccount func() (*PrivateKey, error), keys []*PrivateKey) (codec.Address, error) {
-	// Send to a random, new account
-	// if createAccount != nil {
-	// 	priv, err := createAccount()
-	// 	if err != nil {
-	// 		return codec.EmptyAddress, err
-	// 	}
-	// 	return priv.Address, nil
-	// }
+func getNextRecipient(self int, keys []*PrivateKey) (codec.Address, error) {
 
 	// Select item from array
 	index := rand.Int() % len(keys)
@@ -531,4 +535,228 @@ func generateTransfer(addr codec.Address, amount uint64) []chain.Action { // get
 		Asset: ids.Empty,
 		Value: amount,
 	}}
+}
+
+func getSequencerMessage(addr codec.Address, chainID []byte, dataLen int64) []chain.Action {
+	data := make([]byte, dataLen)
+	_, err := rand.Read(data)
+	if err != nil {
+		fmt.Println("error getting random data", err)
+	}
+	return []chain.Action{&actions.SequencerMsg{
+		ChainId:     chainID,
+		Data:        data,
+		FromAddress: addr,
+		RelayerID:   int(dataLen % 10),
+	}}
+}
+
+func generateRandomActions(parser *chain.Parser, recipient codec.Address, randomValue int64, v int) []chain.Action {
+	actionsPerTx := randomValue % 16 // max actions per tx is 16
+	actions := make([]chain.Action, 0, actionsPerTx)
+	randomNumSet := []uint64{0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 0, 0, 1, 1}
+	chainIDs := [][]byte{[]byte("nkit"), []byte("everest"), []byte("combator"), []byte("marinedrive")}
+	for i := 0; i < int(actionsPerTx); i++ {
+		if randomNumSet[i] == 0 {
+			actions = append(actions, generateTransfer(recipient, uint64(v+i))...)
+		} else {
+			actions = append(actions, getSequencerMessage(recipient, chainIDs[i%4], randomValue%1_200_000)...)
+		}
+	}
+	return actions
+}
+
+func GenerateIllFormedTx(
+	parser chain.Parser,
+	authFactory chain.AuthFactory,
+) (*Transaction, error) {
+	now := time.Now().UnixMilli()
+	rules := parser.Rules(now)
+	base := &chain.Base{
+		Timestamp: utils.UnixRMilli(now, rules.GetValidityWindow()),
+		ChainID:   rules.ChainID(),
+		MaxFee:    1 << 15,
+	}
+	tx := NewTx(base, []chain.Action{})
+	randomData := make([]byte, 10000)
+	rand.Read(randomData)
+	tx.digest = randomData
+	actionRegistry, authRegistry := parser.Registry()
+	txs, err := tx.Sign(authFactory, actionRegistry, authRegistry)
+	if err != nil {
+		return nil, fmt.Errorf("%w: failed to sign transaction", err)
+	}
+	return txs, nil
+}
+
+type Transaction struct {
+	Base *chain.Base `json:"base"`
+
+	Actions []chain.Action `json:"actions"`
+	Auth    chain.Auth     `json:"auth"`
+
+	digest    []byte
+	bytes     []byte
+	size      int
+	id        ids.ID
+	stateKeys state.Keys
+}
+
+func NewTx(base *chain.Base, actions []chain.Action) *Transaction {
+	return &Transaction{
+		Base:    base,
+		Actions: actions,
+	}
+}
+
+func (t *Transaction) Digest() ([]byte, error) {
+	if len(t.digest) > 0 {
+		return t.digest, nil
+	}
+	size := t.Base.Size() + hconsts.Uint8Len
+	for _, action := range t.Actions {
+		size += hconsts.ByteLen + action.Size()
+	}
+	p := codec.NewWriter(size, hconsts.NetworkSizeLimit)
+	t.Base.Marshal(p)
+	p.PackByte(uint8(len(t.Actions)))
+	for _, action := range t.Actions {
+		p.PackByte(action.GetTypeID())
+		action.Marshal(p)
+	}
+	return p.Bytes(), p.Err()
+}
+
+func (t *Transaction) Sign(
+	factory chain.AuthFactory,
+	actionRegistry chain.ActionRegistry,
+	authRegistry chain.AuthRegistry,
+) (*Transaction, error) {
+	msg, err := t.Digest()
+	if err != nil {
+		return nil, err
+	}
+	auth, err := factory.Sign(msg)
+	if err != nil {
+		return nil, err
+	}
+	t.Auth = auth
+
+	// Ensure transaction is fully initialized and correct by reloading it from
+	// bytes
+	size := len(msg) + hconsts.ByteLen + t.Auth.Size()
+	p := codec.NewWriter(size, hconsts.NetworkSizeLimit)
+	if err := t.Marshal(p); err != nil {
+		return nil, err
+	}
+	if err := p.Err(); err != nil {
+		return nil, err
+	}
+	p = codec.NewReader(p.Bytes(), hconsts.MaxInt)
+	return UnmarshalTx(p, actionRegistry, authRegistry)
+}
+
+func (t *Transaction) Marshal(p *codec.Packer) error {
+	if len(t.bytes) > 0 {
+		p.PackFixedBytes(t.bytes)
+		return p.Err()
+	}
+
+	return t.marshalActions(p)
+}
+
+func (t *Transaction) marshalActions(p *codec.Packer) error {
+	t.Base.Marshal(p)
+	p.PackByte(uint8(len(t.Actions)))
+	for _, action := range t.Actions {
+		actionID := action.GetTypeID()
+		p.PackByte(actionID)
+		action.Marshal(p)
+	}
+	authID := t.Auth.GetTypeID()
+	p.PackByte(authID)
+	t.Auth.Marshal(p)
+	return p.Err()
+}
+
+func UnmarshalTx(
+	p *codec.Packer,
+	actionRegistry *codec.TypeParser[chain.Action, bool],
+	authRegistry *codec.TypeParser[chain.Auth, bool],
+) (*Transaction, error) {
+	start := p.Offset()
+	base, err := UnmarshalBase(p)
+	if err != nil {
+		return nil, fmt.Errorf("%w: could not unmarshal base", err)
+	}
+	actions, err := unmarshalActions(p, actionRegistry)
+	if err != nil {
+		return nil, fmt.Errorf("%w: could not unmarshal actions", err)
+	}
+	digest := p.Offset()
+	authType := p.UnpackByte()
+	unmarshalAuth, ok := authRegistry.LookupIndex(authType)
+	if !ok {
+		return nil, fmt.Errorf("%w: %d is unknown auth type", ErrInvalidObject, authType)
+	}
+	auth, err := unmarshalAuth(p)
+	if err != nil {
+		return nil, fmt.Errorf("%w: could not unmarshal auth", err)
+	}
+	if actorType := auth.Actor()[0]; actorType != authType {
+		return nil, fmt.Errorf("%w: actorType (%d) did not match authType (%d)", ErrInvalidActor, actorType, authType)
+	}
+	if sponsorType := auth.Sponsor()[0]; sponsorType != authType {
+		return nil, fmt.Errorf("%w: sponsorType (%d) did not match authType (%d)", ErrInvalidSponsor, sponsorType, authType)
+	}
+
+	var tx Transaction
+	tx.Base = base
+	tx.Actions = actions
+	tx.Auth = auth
+	if err := p.Err(); err != nil {
+		return nil, p.Err()
+	}
+	codecBytes := p.Bytes()
+	tx.digest = codecBytes[start:digest]
+	tx.bytes = codecBytes[start:p.Offset()] // ensure errors handled before grabbing memory
+	tx.size = len(tx.bytes)
+	tx.id = utils.ToID(tx.bytes)
+	return &tx, nil
+}
+
+func unmarshalActions(
+	p *codec.Packer,
+	actionRegistry *codec.TypeParser[chain.Action, bool],
+) ([]chain.Action, error) {
+	actionCount := p.UnpackByte()
+	if actionCount == 0 {
+		return nil, fmt.Errorf("%w: no actions", ErrInvalidObject)
+	}
+	actions := []chain.Action{}
+	for i := uint8(0); i < actionCount; i++ {
+		actionType := p.UnpackByte()
+		unmarshalAction, ok := actionRegistry.LookupIndex(actionType)
+		if !ok {
+			return nil, fmt.Errorf("%w: %d is unknown action type", ErrInvalidObject, actionType)
+		}
+		action, err := unmarshalAction(p)
+		if err != nil {
+			return nil, fmt.Errorf("%w: could not unmarshal action", err)
+		}
+		actions = append(actions, action)
+	}
+	return actions, nil
+}
+
+func UnmarshalBase(p *codec.Packer) (*chain.Base, error) {
+	var base chain.Base
+	base.Timestamp = p.UnpackInt64(true)
+	if base.Timestamp%hconsts.MillisecondsPerSecond != 0 {
+		// TODO: make this modulus configurable
+		return nil, fmt.Errorf("%w: timestamp=%d", ErrMisalignedTime, base.Timestamp)
+	}
+	p.UnpackID(true, &base.ChainID)
+	base.MaxFee = p.UnpackUint64(true)
+	return &base, p.Err()
 }
