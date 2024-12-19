@@ -13,3 +13,5 @@ use ./seq-wasm-tools
 use ./spam/sequencer-msg
 
 use ./nodeid2port
+
+use ./key2seqaddr
