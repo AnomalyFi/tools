@@ -15,3 +15,5 @@ use ./spam/sequencer-msg
 use ./nodeid2port
 
 use ./key2seqaddr
+
+use ./bls-keygen

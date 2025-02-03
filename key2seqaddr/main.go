@@ -9,6 +9,7 @@ import (
 	"github.com/AnomalyFi/hypersdk/codec"
 	"github.com/AnomalyFi/hypersdk/crypto/bls"
 	"github.com/AnomalyFi/nodekit-seq/auth"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 
 func main() {
@@ -34,5 +35,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Printf("%s", benAddr)
+	fmt.Printf("%-15s %-100s\n", "BLS secretkey:", hexutil.Encode(keyBytes))
+	fmt.Printf("%-15s %-100s\n", "BLS pubkey:", hexutil.Encode(pk.Compress()))
+	fmt.Printf("%-15s %-100s\n", "SEQ addr:", benAddr)
 }
